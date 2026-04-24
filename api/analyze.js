@@ -9,6 +9,7 @@ const getServiceAccount = () => {
     const rawData = process.env.FIREBASE_SERVICE_ACCOUNT;
     if (!rawData) throw new Error("找不到環境變數 FIREBASE_SERVICE_ACCOUNT");
 
+    // 解析 JSON
     const serviceAccount = JSON.parse(rawData);
 
     // 強制將字面上的 \n 轉義為真正的換行符號，解決 Vercel 解析失敗的問題
@@ -39,7 +40,20 @@ if (!admin.apps.length) {
 }
 
 const db = admin.firestore();
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+
+// --- Gemini 初始化與除錯邏輯 ---
+const rawApiKey = process.env.GEMINI_API_KEY;
+let genAI;
+
+if (!rawApiKey) {
+    console.error("CRITICAL ERROR: 環境變數 GEMINI_API_KEY 是空的！請檢查 Vercel 設定。");
+} else {
+    // 【關鍵修復】使用 .trim() 移除可能誤加的換行符或隱形空格
+    const cleanApiKey = rawApiKey.trim();
+    // 輸出前四碼以便在 Vercel Log 中確認變數確實存在且正確
+    console.log("Gemini API Key 已載入，字首確認為:", cleanApiKey.substring(0, 4));
+    genAI = new GoogleGenerativeAI(cleanApiKey);
+}
 
 module.exports = async (req, res) => {
   // 設定 CORS 讓前端可以順利呼叫
@@ -54,8 +68,12 @@ module.exports = async (req, res) => {
   if (req.method !== 'POST') return res.status(405).send('Method Not Allowed');
 
   try {
+    // 檢查 Gemini 是否成功初始化
+    if (!genAI) {
+        throw new Error("Gemini API 未能初始化，請檢查 API Key 設定。");
+    }
+
     // 2. 從 Firestore 抓取最近的紀錄
-    // 注意：如果這步噴錯，通常是 Firebase 初始化沒成功
     const snapshot = await db.collection('transactions').orderBy('date', 'desc').limit(10).get();
     
     if (snapshot.empty) {
@@ -84,10 +102,10 @@ module.exports = async (req, res) => {
     res.status(200).json({ advice: text });
 
   } catch (error) {
-    console.error("API Error:", error);
-    // 回傳更詳細的錯誤資訊方便在網頁端除錯
+    console.error("API Error 詳細資訊:", error);
+    // 回傳更友善的錯誤訊息
     res.status(500).json({ 
-      error: "伺服器忙碌中，請稍後再試。", 
+      error: "AI 分析暫時無法運作", 
       details: error.message 
     });
   }
