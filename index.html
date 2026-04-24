@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <title>智慧收支系統</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-100 p-8">
+    <div class="max-w-md mx-auto bg-white p-6 rounded-lg shadow">
+        <h1 class="text-2xl font-bold mb-4">農場民宿收支登錄</h1>
+        
+        <input id="note" type="text" placeholder="摘要(如:賣蜂蜜)" class="w-full border p-2 mb-2">
+        <input id="amount" type="number" placeholder="金額" class="w-full border p-2 mb-2">
+        <select id="category" class="w-full border p-2 mb-4">
+            <option value="農產">農產部門</option>
+            <option value="民宿">民宿部門</option>
+        </select>
+        
+        <button onclick="getAnalysis()" id="analyzeBtn" class="w-full bg-blue-500 text-white p-2 rounded hover:bg-blue-600 disabled:bg-gray-400">
+            產生 AI 經營分析
+        </button>
+
+        <div id="result" class="mt-6 p-4 bg-blue-50 border-l-4 border-blue-500 hidden">
+            <h2 class="font-bold">AI 智慧建議：</h2>
+            <p id="analysisText" class="text-sm text-gray-700 mt-2 whitespace-pre-wrap"></p>
+        </div>
+    </div>
+
+    <script>
+        async function getAnalysis() {
+            const btn = document.getElementById('analyzeBtn');
+            const resultDiv = document.getElementById('result');
+            const textElement = document.getElementById('analysisText');
+            
+            // 進入分析狀態
+            btn.disabled = true;
+            btn.innerText = "分析中...";
+            resultDiv.classList.add('hidden'); // 先隱藏上次的結果
+
+            try {
+                // 呼叫你的 Vercel 後端 API
+                const res = await fetch('/api/analyze', { 
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' }
+                });
+                
+                const data = await res.json();
+                
+                resultDiv.classList.remove('hidden');
+                
+                // 檢查後端回傳的欄位 (同時相容 advice 或 analysis)
+                if (data.advice) {
+                    textElement.innerText = data.advice;
+                } else if (data.analysis) {
+                    textElement.innerText = data.analysis;
+                } else if (data.error) {
+                    textElement.innerText = "抱歉，出錯了：" + data.error;
+                } else {
+                    textElement.innerText = "收到回傳，但格式不對。";
+                    console.log("Debug 資料:", data);
+                }
+                
+            } catch (error) {
+                resultDiv.classList.remove('hidden');
+                textElement.innerText = "無法連線至伺服器，請確認網路或 Vercel 部署狀態。";
+                console.error("Fetch Error:", error);
+            } finally {
+                // 恢復按鈕狀態
+                btn.disabled = false;
+                btn.innerText = "產生 AI 經營分析";
+            }
+        }
+    </script>
+</body>
+</html>
