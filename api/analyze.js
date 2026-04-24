@@ -22,7 +22,8 @@ if (!admin.apps.length) {
 }
 
 const db = admin.firestore();
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY?.trim() || "");
+// 確保 API Key 前後沒有空格
+const genAI = new GoogleGenerativeAI((process.env.GEMINI_API_KEY || "").trim());
 
 module.exports = async (req, res) => {
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -35,20 +36,22 @@ module.exports = async (req, res) => {
   try {
     // 1. 從 Firestore 抓取數據
     const snapshot = await db.collection('transactions').orderBy('date', 'desc').limit(10).get();
+    
+    let summary = "";
     if (snapshot.empty) {
-      return res.status(200).json({ advice: "目前還沒有紀錄，請先新增一些數據喔！" });
+      summary = "目前無收支紀錄。";
+    } else {
+      snapshot.forEach(doc => {
+        const d = doc.data();
+        summary += `項目:${d.note || d.category || '未命名'}, 金額:${d.amount}\n`;
+      });
     }
 
-    let summary = "";
-    snapshot.forEach(doc => {
-      const d = doc.data();
-      summary += `項目:${d.note || '未命名'}, 金額:${d.amount}\n`;
-    });
-
-    // 2. 呼叫 Gemini (關鍵修復：改用最新的穩定版本標籤)
-    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash-latest" });
+    // 2. 呼叫 Gemini (關鍵修復：使用最通用的模型名稱)
+    // 如果 gemini-1.5-flash 報 404，SDK 可能在尋找 v1 版本而非 v1beta
+    const model = genAI.getGenerativeModel({ model: "gemini-pro" });
     
-    const prompt = `你是一位專業的民宿經營顧問。以下是最近的收支：\n${summary}\n請給予兩條繁體中文的具體經營建議。`;
+    const prompt = `你是一位專業的民宿經營顧問。以下是最近的收支狀況：\n${summary}\n請提供兩條簡短的繁體中文經營建議。`;
 
     const result = await model.generateContent(prompt);
     const text = result.response.text();
