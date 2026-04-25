@@ -1,18 +1,18 @@
 const admin = require("firebase-admin");
 
-// --- Firebase 初始化 (已驗證成功) ---
 const initFirebase = () => {
   if (admin.apps.length > 0) return admin.firestore();
   try {
-    const rawData = process.env.FIREBASE_SERVICE_ACCOUNT;
-    if (!rawData) return null;
-    const serviceAccount = JSON.parse(rawData);
+    const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT);
     if (serviceAccount.private_key) {
       serviceAccount.private_key = serviceAccount.private_key.replace(/\\n/g, '\n');
     }
     admin.initializeApp({ credential: admin.credential.cert(serviceAccount) });
     return admin.firestore();
-  } catch (e) { return null; }
+  } catch (e) {
+    console.error("Firebase Init Error:", e.message);
+    return null;
+  }
 };
 
 module.exports = async (req, res) => {
@@ -23,51 +23,42 @@ module.exports = async (req, res) => {
 
   try {
     const db = initFirebase();
+    if (!db) throw new Error("Firebase Fail");
+
     const snapshot = await db.collection('transactions').orderBy('date', 'desc').limit(10).get();
-    let summary = "";
+    let summary = snapshot.empty ? "無資料" : "";
     snapshot.forEach(doc => {
       const d = doc.data();
-      summary += `項目:${d.note || d.category || '未命名'}, 金額:${d.amount}\n`;
+      summary += `項目:${d.note || '支出'}, 金額:${d.amount}\n`;
     });
 
     const API_KEY = (process.env.GEMINI_API_KEY || "").trim();
-    
-    // --- 核心改動：嘗試多個模型路徑 ---
-    const modelsToTry = [
-      "gemini-1.5-flash",
-      "gemini-pro"
-    ];
-    
-    let advice = "";
-    let lastError = "";
+    const API_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${API_KEY}`;
 
-    for (const modelName of modelsToTry) {
-      try {
-        const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${API_KEY}`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            contents: [{ parts: [{ text: `你是一位民宿經營專家，根據以下收支給予兩條繁體中文建議：\n${summary}` }] }]
-          })
-        });
+    const response = await fetch(API_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        contents: [{ parts: [{ text: `你是一位民宿經營專家，根據以下收支給予兩條繁體中文建議：\n${summary}` }] }]
+      })
+    });
 
-        const result = await response.json();
-        if (response.ok && result.candidates) {
-          advice = result.candidates[0].content.parts[0].text;
-          break; // 成功拿到資料，跳出迴圈
-        } else {
-          lastError = result.error?.message || "未知錯誤";
-        }
-      } catch (e) {
-        lastError = e.message;
-      }
+    const result = await response.json();
+
+    // --- 關鍵容錯處理 ---
+    if (result.candidates && result.candidates[0] && result.candidates[0].content) {
+      const text = result.candidates[0].content.parts[0].text;
+      return res.status(200).json({ advice: text });
+    } else {
+      console.error("Google Error Details:", JSON.stringify(result));
+      return res.status(500).json({ 
+        error: "AI 格式錯誤", 
+        details: result.error?.message || "無法從 Gemini 取得內容" 
+      });
     }
 
-    if (!advice) throw new Error(`所有模型均不可用。最後一個錯誤: ${lastError}`);
-
-    res.status(200).json({ advice });
-
   } catch (error) {
-    res.status(500).json({ error: "AI 分析失敗", details: error.message });
+    console.error("Runtime Error:", error.message);
+    return res.status(500).json({ error: "AI 分析失敗", details: error.message });
   }
 };
