@@ -26,6 +26,7 @@ module.exports = async (req, res) => {
     
     // --- 這次我們換成正式版 v1 路由，並使用官方最穩定的路徑 ---
     const API_KEY = process.env.GEMINI_API_KEY; // 程式會自動去 Vercel 設定裡抓
+    // 請將程式碼改成這行（注意反引號 ` ）
     const API_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${API_KEY}`;
 
     const response = await fetch(API_URL, {
