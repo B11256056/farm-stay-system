@@ -4,10 +4,14 @@ const initFirebase = () => {
   if (admin.apps.length > 0) return admin.firestore();
   try {
     const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT);
-    if (serviceAccount.private_key) serviceAccount.private_key = serviceAccount.private_key.replace(/\\n/g, '\n');
+    if (serviceAccount.private_key) {
+      serviceAccount.private_key = serviceAccount.private_key.replace(/\\n/g, '\n');
+    }
     admin.initializeApp({ credential: admin.credential.cert(serviceAccount) });
     return admin.firestore();
-  } catch (e) { return null; }
+  } catch (e) {
+    return null;
+  }
 };
 
 module.exports = async (req, res) => {
@@ -18,15 +22,16 @@ module.exports = async (req, res) => {
 
   try {
     const db = initFirebase();
+    if (!db) throw new Error("Firebase 初始化失敗");
+
     const snapshot = await db.collection('transactions').orderBy('date', 'desc').limit(5).get();
     let summary = "";
-    snapshot.forEach(doc => { summary += `${doc.data().note || '支出'}: ${doc.data().amount}\n`; });
+    snapshot.forEach(doc => { 
+      summary += `${doc.data().note || '支出'}: ${doc.data().amount}\n`; 
+    });
 
+    // --- 修正處：只定義一次 API_KEY 並使用 v1beta ---
     const API_KEY = (process.env.GEMINI_API_KEY || "").trim();
-    
-    // --- 這次我們換成正式版 v1 路由，並使用官方最穩定的路徑 ---
-    const API_KEY = process.env.GEMINI_API_KEY; // 程式會自動去 Vercel 設定裡抓
-    // 請將程式碼改成這行（注意反引號 ` ）
     const API_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${API_KEY}`;
 
     const response = await fetch(API_URL, {
@@ -42,7 +47,6 @@ module.exports = async (req, res) => {
     if (result.candidates?.[0]?.content?.parts?.[0]?.text) {
       return res.status(200).json({ advice: result.candidates[0].content.parts[0].text });
     } else {
-      // 顯示最詳盡的報錯，幫助我們判斷是否為地區或權限問題
       const errorMsg = result.error?.message || JSON.stringify(result);
       return res.status(200).json({ advice: `API 回應異常：${errorMsg}` });
     }
