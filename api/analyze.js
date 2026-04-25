@@ -20,18 +20,18 @@ module.exports = async (req, res) => {
     const db = initFirebase();
     const snapshot = await db.collection('transactions').orderBy('date', 'desc').limit(5).get();
     let summary = "";
-    snapshot.forEach(doc => { summary += `${doc.data().note || '項目'}: ${doc.data().amount}\n`; });
+    snapshot.forEach(doc => { summary += `${doc.data().note || '支出'}: ${doc.data().amount}\n`; });
 
     const API_KEY = (process.env.GEMINI_API_KEY || "").trim();
     
-    // --- 關鍵修正：改用 gemini-pro，這是目前 404 機率最低的模型 ---
-    const API_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=${API_KEY}`;
+    // --- 這次我們換成正式版 v1 路由，並使用官方最穩定的路徑 ---
+    const API_URL = `https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent?key=${API_KEY}`;
 
     const response = await fetch(API_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        contents: [{ parts: [{ text: `你是一位經營專家，請針對以下收支給予兩條繁體中文建議：\n${summary}` }] }]
+        contents: [{ parts: [{ text: `你是一位經營專家，請給予兩條繁體中文建議：\n${summary}` }] }]
       })
     });
 
@@ -40,12 +40,12 @@ module.exports = async (req, res) => {
     if (result.candidates?.[0]?.content?.parts?.[0]?.text) {
       return res.status(200).json({ advice: result.candidates[0].content.parts[0].text });
     } else {
-      // 如果 gemini-pro 也不行，我們就印出具體的 Google 報錯給前端
-      const msg = result.error?.message || "模型路徑錯誤";
-      return res.status(200).json({ advice: `分析暫時無法產生 (${msg})` });
+      // 顯示最詳盡的報錯，幫助我們判斷是否為地區或權限問題
+      const errorMsg = result.error?.message || JSON.stringify(result);
+      return res.status(200).json({ advice: `API 回應異常：${errorMsg}` });
     }
 
   } catch (error) {
-    return res.status(200).json({ advice: `連線失敗：${error.message}` });
+    return res.status(200).json({ advice: `系統錯誤：${error.message}` });
   }
 };
