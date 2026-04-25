@@ -25,7 +25,7 @@ module.exports = async (req, res) => {
     const API_KEY = (process.env.GEMINI_API_KEY || "").trim();
     
     // --- 這次我們換成正式版 v1 路由，並使用官方最穩定的路徑 ---
-    const API_URL = `https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent?key=${API_KEY}`;
+    const API_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=AIzaSyCXMMhz1FlsvJt7kFYWoCdA7yjvgq3-CIw";
 
     const response = await fetch(API_URL, {
       method: 'POST',
