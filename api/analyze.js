@@ -4,15 +4,10 @@ const initFirebase = () => {
   if (admin.apps.length > 0) return admin.firestore();
   try {
     const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT);
-    if (serviceAccount.private_key) {
-      serviceAccount.private_key = serviceAccount.private_key.replace(/\\n/g, '\n');
-    }
+    if (serviceAccount.private_key) serviceAccount.private_key = serviceAccount.private_key.replace(/\\n/g, '\n');
     admin.initializeApp({ credential: admin.credential.cert(serviceAccount) });
     return admin.firestore();
-  } catch (e) {
-    console.error("Firebase Init Error:", e.message);
-    return null;
-  }
+  } catch (e) { return null; }
 };
 
 module.exports = async (req, res) => {
@@ -23,42 +18,34 @@ module.exports = async (req, res) => {
 
   try {
     const db = initFirebase();
-    if (!db) throw new Error("Firebase Fail");
-
-    const snapshot = await db.collection('transactions').orderBy('date', 'desc').limit(10).get();
-    let summary = snapshot.empty ? "無資料" : "";
-    snapshot.forEach(doc => {
-      const d = doc.data();
-      summary += `項目:${d.note || '支出'}, 金額:${d.amount}\n`;
-    });
+    const snapshot = await db.collection('transactions').orderBy('date', 'desc').limit(5).get();
+    let summary = "";
+    snapshot.forEach(doc => { summary += `${doc.data().note || '項目'}: ${doc.data().amount}\n`; });
 
     const API_KEY = (process.env.GEMINI_API_KEY || "").trim();
-    const API_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${API_KEY}`;
+    
+    // --- 關鍵修正：改用 gemini-pro，這是目前 404 機率最低的模型 ---
+    const API_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=${API_KEY}`;
 
     const response = await fetch(API_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        contents: [{ parts: [{ text: `你是一位民宿經營專家，根據以下收支給予兩條繁體中文建議：\n${summary}` }] }]
+        contents: [{ parts: [{ text: `你是一位經營專家，請針對以下收支給予兩條繁體中文建議：\n${summary}` }] }]
       })
     });
 
     const result = await response.json();
 
-    // --- 關鍵容錯處理 ---
-    if (result.candidates && result.candidates[0] && result.candidates[0].content) {
-      const text = result.candidates[0].content.parts[0].text;
-      return res.status(200).json({ advice: text });
+    if (result.candidates?.[0]?.content?.parts?.[0]?.text) {
+      return res.status(200).json({ advice: result.candidates[0].content.parts[0].text });
     } else {
-      console.error("Google Error Details:", JSON.stringify(result));
-      return res.status(500).json({ 
-        error: "AI 格式錯誤", 
-        details: result.error?.message || "無法從 Gemini 取得內容" 
-      });
+      // 如果 gemini-pro 也不行，我們就印出具體的 Google 報錯給前端
+      const msg = result.error?.message || "模型路徑錯誤";
+      return res.status(200).json({ advice: `分析暫時無法產生 (${msg})` });
     }
 
   } catch (error) {
-    console.error("Runtime Error:", error.message);
-    return res.status(500).json({ error: "AI 分析失敗", details: error.message });
+    return res.status(200).json({ advice: `連線失敗：${error.message}` });
   }
 };
