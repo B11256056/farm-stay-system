@@ -1,44 +1,70 @@
-<button onclick="getAnalysis(event)" id="analyzeBtn" class="w-full bg-blue-500 text-white p-2 rounded hover:bg-blue-600 disabled:bg-gray-400">
-    產生 AI 經營分析
-</button>
-
-<script>
-    async function getAnalysis(e) {
-        if (e) e.preventDefault(); // 避免非同步通訊中斷
-
-        const btn = document.getElementById('analyzeBtn');
-        const resultDiv = document.getElementById('result');
-        const textElement = document.getElementById('analysisText');
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <title>智慧收支系統</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-100 p-8">
+    <div class="max-w-md mx-auto bg-white p-6 rounded-lg shadow">
+        <h1 class="text-2xl font-bold mb-4">農場民宿收支登錄</h1>
         
-        btn.disabled = true;
-        btn.innerText = "分析中...";
-        resultDiv.classList.add('hidden'); 
+        <input id="note" type="text" placeholder="摘要(如:賣蜂蜜)" class="w-full border p-2 mb-2">
+        <input id="amount" type="number" placeholder="金額" class="w-full border p-2 mb-2">
+        <select id="category" class="w-full border p-2 mb-4">
+            <option value="農產">農產部門</option>
+            <option value="民宿">民宿部門</option>
+        </select>
+        
+        <button onclick="getAnalysis(event)" id="analyzeBtn" class="w-full bg-blue-500 text-white p-2 rounded hover:bg-blue-600 disabled:bg-gray-400">
+            產生 AI 經營分析
+        </button>
 
-        try {
-            // 使用絕對路徑確保在任何測試環境都能抓到你的 Vercel 後端
-            const res = await fetch('https://farm-stay-system-h9dd.vercel.app/api/analyze', { 
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' }
-            });
+        <div id="result" class="mt-6 p-4 bg-blue-50 border-l-4 border-blue-500 hidden">
+            <h2 class="font-bold">AI 智慧建議：</h2>
+            <p id="analysisText" class="text-sm text-gray-700 mt-2 whitespace-pre-wrap"></p>
+        </div>
+    </div>
+
+    <script>
+        async function getAnalysis(e) {
+            if (e) e.preventDefault(); // 鎖定通訊通道
+
+            const btn = document.getElementById('analyzeBtn');
+            const resultDiv = document.getElementById('result');
+            const textElement = document.getElementById('analysisText');
             
-            const data = await res.json();
-            resultDiv.classList.remove('hidden');
-            
-            // 你的邏輯非常棒，這裡完美對接
-            if (data.advice) {
-                textElement.innerText = data.advice;
-            } else if (data.error) {
-                textElement.innerText = "出錯了：" + data.error;
-            } else {
-                textElement.innerText = "格式不符，請檢查主控台。";
-                console.log(data);
+            btn.disabled = true;
+            btn.innerText = "專家分析中...";
+            resultDiv.classList.add('hidden'); 
+
+            try {
+                // 指向你最穩定的 h9dd 專案網址
+                const res = await fetch('https://farm-stay-system-h9dd.vercel.app/api/analyze', { 
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' }
+                });
+                
+                const data = await res.json();
+                resultDiv.classList.remove('hidden');
+                
+                // 讀取後端回傳的 advice 欄位
+                if (data.advice) {
+                    textElement.innerText = data.advice;
+                } else {
+                    textElement.innerText = "收到回傳但格式異常，請檢視控制台。";
+                    console.log("Debug Data:", data);
+                }
+                
+            } catch (error) {
+                resultDiv.classList.remove('hidden');
+                textElement.innerText = "連線失敗，請檢查 Vercel 部署狀態。";
+                console.error("Fetch Error:", error);
+            } finally {
+                btn.disabled = false;
+                btn.innerText = "產生 AI 經營分析";
             }
-        } catch (error) {
-            resultDiv.classList.remove('hidden');
-            textElement.innerText = "無法連線：" + error.message;
-        } finally {
-            btn.disabled = false;
-            btn.innerText = "產生 AI 經營分析";
         }
-    }
-</script>
+    </script>
+</body>
+</html>
