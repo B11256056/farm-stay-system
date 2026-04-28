@@ -39,7 +39,7 @@ module.exports = async (req, res) => {
       summary += `- ${data.note || '項目'}: ${type} NT$${amount} (${data.category || '未分類'})\n`;
     });
 
-    if (!summary) {
+    if (!summary || summary === "") {
       summary = "目前尚無收支紀錄";
     }
 
@@ -47,10 +47,9 @@ module.exports = async (req, res) => {
     
     /**
      * 【最終修正方案】
-     * 嘗試使用 v1 版本的最穩定路徑。
-     * 如果 gemini-1.5-flash 持續報錯，可以嘗試切換為 gemini-pro (這是舊版但最穩定的名稱)
+     * 經測試，v1beta 是目前對 gemini-1.5-flash 支援度最廣的端點。
      */
-    const API_URL = `https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent?key=${API_KEY}`;
+    const API_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${API_KEY}`;
     
     const promptText = `你是一位專業的台灣農場民宿經營分析師。
 請根據以下最近的收支數據，提供兩條「繁體中文」的具體經營建議。
@@ -63,7 +62,7 @@ module.exports = async (req, res) => {
 詳細明細：
 ${summary}
 
-請直接輸出二至三條建議，使用 Markdown 的列表格式，不要有額外的引言或結語。`;
+請直接輸出建議內容，使用 Markdown 的列表格式 (如 1. 或 2.)，不要有額外的引言（如「好的，以下是建議」）或結語。`;
 
     const response = await fetch(API_URL, {
       method: 'POST',
@@ -76,14 +75,14 @@ ${summary}
           temperature: 0.7,
           topK: 40,
           topP: 0.95,
-          maxOutputTokens: 1024,
+          maxOutputTokens: 800,
         }
       })
     });
 
     const result = await response.json();
 
-    // 增加對 result.error 的直接檢查
+    // 檢查 Google API 是否回報錯誤
     if (result.error) {
       console.error("Gemini API Error Detail:", JSON.stringify(result.error));
       return res.status(200).json({ 
@@ -91,10 +90,14 @@ ${summary}
       });
     }
 
-    if (result.candidates?.[0]?.content?.parts?.[0]?.text) {
-      return res.status(200).json({ advice: result.candidates[0].content.parts[0].text });
+    // 解析生成的文字內容
+    const adviceText = result.candidates?.[0]?.content?.parts?.[0]?.text;
+
+    if (adviceText) {
+      return res.status(200).json({ advice: adviceText.trim() });
     } else {
-      return res.status(200).json({ advice: "AI 暫時無法分析：回傳內容格式不正確。" });
+      console.error("Unexpected Result Format:", JSON.stringify(result));
+      return res.status(200).json({ advice: "AI 暫時無法分析：回傳內容格式不正確，請稍後再試。" });
     }
   } catch (error) {
     console.error("System Error:", error);
