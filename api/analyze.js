@@ -15,7 +15,6 @@ const initFirebase = () => {
 };
 
 module.exports = async (req, res) => {
-  // 設定 CORS，允許前端跨網域呼叫
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
@@ -25,7 +24,6 @@ module.exports = async (req, res) => {
     const db = initFirebase();
     if (!db) throw new Error("Firebase 初始化失敗");
 
-    // 抓取最近 5 筆紀錄作為 AI 分析素材
     const snapshot = await db.collection('transactions').orderBy('date', 'desc').limit(5).get();
     let summary = "";
     snapshot.forEach(doc => {
@@ -39,9 +37,9 @@ module.exports = async (req, res) => {
     }
 
     const API_KEY = (process.env.GEMINI_API_KEY || "").trim();
-
-    // ✅ 修正：使用 v1 路由（不是 v1beta）
-   const API_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=${API_KEY}`;
+    const API_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=${API_KEY}`;
+    
+    const response = await fetch(API_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
