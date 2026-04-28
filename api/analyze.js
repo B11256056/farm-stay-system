@@ -24,7 +24,7 @@ module.exports = async (req, res) => {
     const db = initFirebase();
     if (!db) throw new Error("Firebase 初始化失敗");
 
-    // 抓取最近的交易紀錄 (增加到 20 筆讓分析更準確)
+    // 抓取最近的交易紀錄
     const snapshot = await db.collection('transactions').orderBy('date', 'desc').limit(20).get();
     let summary = "";
     let totalIncome = 0;
@@ -40,20 +40,24 @@ module.exports = async (req, res) => {
     });
 
     if (!summary || summary === "") {
-      summary = "目前尚無收支紀錄";
+      summary = "目前尚未有任何收支紀錄。";
     }
 
     const API_KEY = (process.env.GEMINI_API_KEY || "").trim();
+    if (!API_KEY) {
+      return res.status(200).json({ advice: "系統錯誤：未設定 GEMINI_API_KEY 環境變數。" });
+    }
     
     /**
-     * 【最終修正方案】
-     * 經測試，v1beta 是目前對 gemini-1.5-flash 支援度最廣的端點。
+     * 【極致相容方案】
+     * 由於 1.5-flash 頻繁回報 404，改用 gemini-pro。
+     * gemini-pro 是 Google 最早期的穩定名稱，通常擁有最高的相容性。
      */
-    const API_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${API_KEY}`;
+    const API_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=${API_KEY}`;
     
     const promptText = `你是一位專業的台灣農場民宿經營分析師。
 請根據以下最近的收支數據，提供兩條「繁體中文」的具體經營建議。
-建議要實用、具有執行力，並針對農場民宿的特性（如季節性、活動設計或成本控制）。
+建議要實用、針對台灣市場、並專注於農事體驗優化或成本控管。
 
 數據摘要：
 總計收入：NT$${totalIncome}
@@ -62,7 +66,7 @@ module.exports = async (req, res) => {
 詳細明細：
 ${summary}
 
-請直接輸出建議內容，使用 Markdown 的列表格式 (如 1. 或 2.)，不要有額外的引言（如「好的，以下是建議」）或結語。`;
+請直接輸出兩條建議，使用 Markdown 列表格式（1. 和 2.），每條建議約 50 字左右。不要有引言或結語。`;
 
     const response = await fetch(API_URL, {
       method: 'POST',
@@ -73,16 +77,13 @@ ${summary}
         }],
         generationConfig: {
           temperature: 0.7,
-          topK: 40,
-          topP: 0.95,
-          maxOutputTokens: 800,
+          maxOutputTokens: 500,
         }
       })
     });
 
     const result = await response.json();
 
-    // 檢查 Google API 是否回報錯誤
     if (result.error) {
       console.error("Gemini API Error Detail:", JSON.stringify(result.error));
       return res.status(200).json({ 
@@ -90,14 +91,12 @@ ${summary}
       });
     }
 
-    // 解析生成的文字內容
     const adviceText = result.candidates?.[0]?.content?.parts?.[0]?.text;
 
     if (adviceText) {
       return res.status(200).json({ advice: adviceText.trim() });
     } else {
-      console.error("Unexpected Result Format:", JSON.stringify(result));
-      return res.status(200).json({ advice: "AI 暫時無法分析：回傳內容格式不正確，請稍後再試。" });
+      return res.status(200).json({ advice: "AI 暫時無法分析，請確保後端數據已正確傳輸。" });
     }
   } catch (error) {
     console.error("System Error:", error);
