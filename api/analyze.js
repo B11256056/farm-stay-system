@@ -41,8 +41,7 @@ module.exports = async (req, res) => {
     const API_KEY = (process.env.GEMINI_API_KEY || "").trim();
 
     // ✅ 修正：使用 v1 路由（不是 v1beta）
-    const API_URL = `https://generativelanguage.googleapis.com/v1/models/gemini-pro:generateContent?key=${API_KEY}`;
-    const response = await fetch(API_URL, {
+   const API_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=${API_KEY}`;
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
