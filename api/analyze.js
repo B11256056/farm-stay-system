@@ -87,21 +87,21 @@ ${summary || "暫無紀錄"}
       // 1. 收入邏輯判斷 (門檻：5000 / 1500)
       if (totalIncome >= 5000) {
         incomeAdvice = `目前總收入 NT$${totalIncome} 已達標。建議將「${latestIncomeItem}」品牌化，撥取預算進行在地旅遊社群（如 FB/IG）推廣，並針對高客單價客戶設計專屬的 VIP 回饋活動，鞏固核心營收。`;
-      } else if (totalIncome > 0 && totalIncome < 1500) {
-        incomeAdvice = `目前總收入 NT$${totalIncome} 偏低。建議重新評估「${latestIncomeItem}」的成本結構與市場定價，或開發與其搭配的微型手作體驗（如農事導覽），以提升整體客單價至 1500 元以上。`;
       } else if (totalIncome >= 1500 && totalIncome < 5000) {
-        incomeAdvice = `目前的收入水位穩定。建議優化「${latestIncomeCategory}」的銷售動線，並利用現場打卡優惠活動吸引新客，穩定目前的營收並尋求突破。`;
+        incomeAdvice = `目前的收入水位 NT$${totalIncome} 穩定。建議優化「${latestIncomeCategory}」的銷售動線，並利用現場打卡優惠活動吸引新客，穩定目前的營收並尋求突破。`;
+      } else if (totalIncome > 0 && totalIncome < 1500) {
+        incomeAdvice = `目前總收入 NT$${totalIncome} 偏低。建議重新評估「${latestIncomeItem}」的成本結構與市場定價，或開發與其搭配的微型手作體驗（如農事導覽），以提升整體客單價。`;
       } else {
         incomeAdvice = "目前尚未觀測到收入紀錄。建議檢查產品銷售或住宿預約登錄，確保數據完整以便進行後續分析。";
       }
 
       // 2. 支出邏輯判斷 (門檻：5000 / 2000)
       if (totalExpense >= 5000) {
-        expenseAdvice = `總支出 NT$${totalExpense} 略高，已超過預警門檻。建議詳細複核「固定開銷」與「變動採購」，評估是否有重複性支出，或嘗試與周邊農友集體採購資材以降低 5-10% 的營運成本。`;
+        expenseAdvice = `總支出 NT$${totalExpense} 略高。建議詳細複核「固定開銷」與「變動採購」，評估是否有重複性支出，或嘗試與周邊農友集體採購資材以降低 5-10% 的營運成本。`;
+      } else if (totalExpense >= 2000 && totalExpense < 5000) {
+        expenseAdvice = `支出處於中階管控期（NT$${totalExpense}）。建議建立月度預算對照表，觀察是否有閒置資源，並將資金集中投入於能直接產生回報的生財設備或數位維護。`;
       } else if (totalExpense > 0 && totalExpense < 2000) {
         expenseAdvice = `目前支出 NT$${totalExpense} 控管得宜，處於安全水位。建議將這筆緩衝資金用於農場細部優化，如增設景觀拍照點或修繕老舊指標，提升顧客的品牌印象。`;
-      } else if (totalExpense >= 2000 && totalExpense < 5000) {
-        expenseAdvice = `支出處於中階管控期。建議建立月度預算對照表，觀察是否有閒置資源，並將資金集中投入於能直接產生回報的生財設備或數位維護。`;
       } else {
         expenseAdvice = "目前支出紀錄為零。建議詳細登錄農場日常開支（如飼料、水電、修繕），這對計算精確的淨利潤至關重要。";
       }
