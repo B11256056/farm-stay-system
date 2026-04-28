@@ -49,7 +49,7 @@ module.exports = async (req, res) => {
     });
 
     const API_KEY = (process.env.GEMINI_API_KEY || "").trim();
-    const API_URL = `https://generativelanguage.googleapis.com/v1/models/gemini-pro:generateContent?key=${API_KEY}`;
+    const API_URL = `https://generativelanguage.googleapis.com/v1/models/gemini-2.0-flash-lite:generateContent?key=${API_KEY}`;
     
     const promptText = `你是一位台灣農場民宿經營專家。請針對以下收支給予兩條繁體中文經營建議。
 數據：總收入 NT$${totalIncome}, 總支出 NT$${totalExpense}。
