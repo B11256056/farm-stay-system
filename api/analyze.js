@@ -79,34 +79,34 @@ ${summary || "暫無紀錄"}
         throw new Error("AI 端點無回應，切換至專業邏輯引擎");
       }
     } catch (aiError) {
-      console.error("AI 失敗，啟動數值判斷分析邏輯:", aiError.message);
+      console.error("AI 失敗，啟動精確數值判斷分析邏輯:", aiError.message);
       
       let incomeAdvice = "";
       let expenseAdvice = "";
 
-      // 1. 收入邏輯判斷
+      // 1. 收入邏輯判斷 (門檻：5000 / 1500)
       if (totalIncome >= 5000) {
-        incomeAdvice = `目前總收入 NT$${totalIncome} 表現優異，建議提撥 15% 作為「${latestIncomeItem}」相關的品牌推廣基金，例如拍攝高品質宣傳圖或投放社群廣告，擴大穩定客源。`;
+        incomeAdvice = `目前總收入 NT$${totalIncome} 已達標。建議將「${latestIncomeItem}」品牌化，撥取預算進行在地旅遊社群（如 FB/IG）推廣，並針對高客單價客戶設計專屬的 VIP 回饋活動，鞏固核心營收。`;
       } else if (totalIncome > 0 && totalIncome < 1500) {
-        incomeAdvice = `目前總收入為 NT$${totalIncome}，金額較低。建議審視「${latestIncomeCategory}」的定價策略，或考慮將「${latestIncomeItem}」與其他體驗活動綑綁銷售，提高單次消費客單價。`;
+        incomeAdvice = `目前總收入 NT$${totalIncome} 偏低。建議重新評估「${latestIncomeItem}」的成本結構與市場定價，或開發與其搭配的微型手作體驗（如農事導覽），以提升整體客單價至 1500 元以上。`;
       } else if (totalIncome >= 1500 && totalIncome < 5000) {
-        incomeAdvice = `目前收入狀況平穩。建議建立「${latestIncomeItem}」的顧客滿意度回訪機制，透過收集評論獲取更多口碑推薦。`;
+        incomeAdvice = `目前的收入水位穩定。建議優化「${latestIncomeCategory}」的銷售動線，並利用現場打卡優惠活動吸引新客，穩定目前的營收並尋求突破。`;
       } else {
-        incomeAdvice = "目前尚未有收入紀錄，建議儘早開始記錄農場產品銷售或住宿預約，以便系統進行初步分析。";
+        incomeAdvice = "目前尚未觀測到收入紀錄。建議檢查產品銷售或住宿預約登錄，確保數據完整以便進行後續分析。";
       }
 
-      // 2. 支出邏輯判斷
+      // 2. 支出邏輯判斷 (門檻：5000 / 2000)
       if (totalExpense >= 5000) {
-        expenseAdvice = `總支出已達到 NT$${totalExpense}。建議立即檢視成本明細，特別是固定資產維護或大量採購項目，評估是否能與在地農場結盟採購，以爭取更佳的折扣空間。`;
+        expenseAdvice = `總支出 NT$${totalExpense} 略高，已超過預警門檻。建議詳細複核「固定開銷」與「變動採購」，評估是否有重複性支出，或嘗試與周邊農友集體採購資材以降低 5-10% 的營運成本。`;
       } else if (totalExpense > 0 && totalExpense < 2000) {
-        expenseAdvice = `目前支出 NT$${totalExpense} 控管得宜。建議在低支出的緩衝期內，小額投入場域綠化或基礎設施微調，以維持農場對新客的視覺吸引力。`;
+        expenseAdvice = `目前支出 NT$${totalExpense} 控管得宜，處於安全水位。建議將這筆緩衝資金用於農場細部優化，如增設景觀拍照點或修繕老舊指標，提升顧客的品牌印象。`;
       } else if (totalExpense >= 2000 && totalExpense < 5000) {
-        expenseAdvice = `支出處於中階範圍。建議建立月度成本對照表，觀察是否有週期性浪費，並將省下的資金投入數位預約系統的維護。`;
+        expenseAdvice = `支出處於中階管控期。建議建立月度預算對照表，觀察是否有閒置資源，並將資金集中投入於能直接產生回報的生財設備或數位維護。`;
       } else {
-        expenseAdvice = "目前支出紀錄為零。建議詳細記錄所有必要開銷（如飼料、維修、水電），以計算精確的農場獲利率。";
+        expenseAdvice = "目前支出紀錄為零。建議詳細登錄農場日常開支（如飼料、水電、修繕），這對計算精確的淨利潤至關重要。";
       }
 
-      aiAdvice = `1. [收入分析] ${incomeAdvice}\n2. [財務建議] ${expenseAdvice}`;
+      aiAdvice = `1. [經營建議] ${incomeAdvice}\n2. [成本控管] ${expenseAdvice}`;
     }
 
     return res.status(200).json({ advice: aiAdvice });
