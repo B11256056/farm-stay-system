@@ -34,22 +34,21 @@ module.exports = async (req, res) => {
 
     snapshot.forEach(doc => {
       const data = doc.data();
-      const amount = Number(data.amount) || 0;
+      // 使用 parseFloat 並處理可能為空的情況，確保是純數字計算
+      const amount = parseFloat(data.amount) || 0;
       if (data.type === 'income') {
         totalIncome += amount;
         if (!latestIncomeItem) {
           latestIncomeItem = data.note || "產品銷售";
           latestIncomeCategory = data.category || "一般收入";
         }
-      } else {
+      } else if (data.type === 'expense') {
         totalExpense += amount;
       }
       summary += `- ${data.note}: ${data.type === 'income' ? '收入' : '支出'} NT$${amount}\n`;
     });
 
     const API_KEY = (process.env.GEMINI_API_KEY || "").trim();
-    
-    // 改用最基礎、相容性最高的 v1/gemini-pro 端點
     const API_URL = `https://generativelanguage.googleapis.com/v1/models/gemini-pro:generateContent?key=${API_KEY}`;
     
     const promptText = `你是一位台灣農場民宿經營專家。請針對以下收支給予兩條繁體中文經營建議。
@@ -76,37 +75,38 @@ ${summary || "暫無紀錄"}
       if (result.candidates?.[0]?.content?.parts?.[0]?.text) {
         aiAdvice = result.candidates[0].content.parts[0].text.trim();
       } else {
-        throw new Error("AI 端點無回應，切換至專業邏輯引擎");
+        throw new Error("AI 端點無回應");
       }
     } catch (aiError) {
-      console.error("AI 失敗，啟動精確數值判斷分析邏輯:", aiError.message);
+      console.error("AI 失敗，執行數值分析引擎。總支出：", totalExpense);
       
       let incomeAdvice = "";
       let expenseAdvice = "";
 
-      // 1. 收入邏輯判斷 (門檻：5000 / 1500)
+      // --- 收入分析 (5000 / 1500) ---
       if (totalIncome >= 5000) {
-        incomeAdvice = `目前總收入 NT$${totalIncome} 已達標。建議將「${latestIncomeItem}」品牌化，撥取預算進行在地旅遊社群（如 FB/IG）推廣，並針對高客單價客戶設計專屬的 VIP 回饋活動，鞏固核心營收。`;
-      } else if (totalIncome >= 1500 && totalIncome < 5000) {
-        incomeAdvice = `目前的收入水位 NT$${totalIncome} 穩定。建議優化「${latestIncomeCategory}」的銷售動線，並利用現場打卡優惠活動吸引新客，穩定目前的營收並尋求突破。`;
-      } else if (totalIncome > 0 && totalIncome < 1500) {
-        incomeAdvice = `目前總收入 NT$${totalIncome} 偏低。建議重新評估「${latestIncomeItem}」的成本結構與市場定價，或開發與其搭配的微型手作體驗（如農事導覽），以提升整體客單價。`;
+        incomeAdvice = `目前總收入 NT$${totalIncome.toLocaleString()} 已達標。建議將「${latestIncomeItem}」品牌化，撥取預算進行在地旅遊社群（如 FB/IG）推廣，並針對高客單價客戶設計專屬的 VIP 回饋活動，鞏固核心營收。`;
+      } else if (totalIncome >= 1500) {
+        incomeAdvice = `目前的收入水位 NT$${totalIncome.toLocaleString()} 穩定。建議優化「${latestIncomeCategory}」的銷售動線，並利用現場打卡優惠活動吸引新客，尋求營收突破。`;
+      } else if (totalIncome > 0) {
+        incomeAdvice = `目前總收入 NT$${totalIncome.toLocaleString()} 偏低。建議重新評估「${latestIncomeItem}」的定價，或開發與其搭配的微型手作體驗（如農事導覽），以提升整體客單價。`;
       } else {
-        incomeAdvice = "目前尚未觀測到收入紀錄。建議檢查產品銷售或住宿預約登錄，確保數據完整以便進行後續分析。";
+        incomeAdvice = "目前尚未觀測到收入紀錄。建議檢查產品銷售或住宿預約登錄。";
       }
 
-      // 2. 支出邏輯判斷 (門檻：5000 / 2000)
+      // --- 支出分析 (5000 / 2000) ---
+      // 修正：明確優先判定最高金額
       if (totalExpense >= 5000) {
-        expenseAdvice = `總支出 NT$${totalExpense} 略高。建議詳細複核「固定開銷」與「變動採購」，評估是否有重複性支出，或嘗試與周邊農友集體採購資材以降低 5-10% 的營運成本。`;
-      } else if (totalExpense >= 2000 && totalExpense < 5000) {
-        expenseAdvice = `支出處於中階管控期（NT$${totalExpense}）。建議建立月度預算對照表，觀察是否有閒置資源，並將資金集中投入於能直接產生回報的生財設備或數位維護。`;
-      } else if (totalExpense > 0 && totalExpense < 2000) {
-        expenseAdvice = `目前支出 NT$${totalExpense} 控管得宜，處於安全水位。建議將這筆緩衝資金用於農場細部優化，如增設景觀拍照點或修繕老舊指標，提升顧客的品牌印象。`;
+        expenseAdvice = `【預警】總支出已達 NT$${totalExpense.toLocaleString()}。建議立即詳細複核開銷項目，評估是否有重複採購，或嘗試與周邊農友集體採購資材以降低 5-10% 的營運成本。`;
+      } else if (totalExpense >= 2000) {
+        expenseAdvice = `目前支出為 NT$${totalExpense.toLocaleString()}，處於中階管控期。建議建立月度預算表，觀察是否有閒置資源，並將資金集中投入於能直接產生回報的生財設備。`;
+      } else if (totalExpense > 0) {
+        expenseAdvice = `目前支出 NT$${totalExpense.toLocaleString()} 控管得宜。建議將緩衝資金用於農場細部優化，如增設景觀拍照點，提升顧客的品牌印象與社群打卡率。`;
       } else {
-        expenseAdvice = "目前支出紀錄為零。建議詳細登錄農場日常開支（如飼料、水電、修繕），這對計算精確的淨利潤至關重要。";
+        expenseAdvice = "目前支出紀錄為零（或未正確分類）。請確保在新增紀錄時，類型選擇「支出」，系統才能為您進行預算分析。";
       }
 
-      aiAdvice = `1. [經營建議] ${incomeAdvice}\n2. [成本控管] ${expenseAdvice}`;
+      aiAdvice = `1. [經營分析] ${incomeAdvice}\n2. [成本控管] ${expenseAdvice}`;
     }
 
     return res.status(200).json({ advice: aiAdvice });
