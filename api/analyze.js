@@ -15,6 +15,7 @@ const initFirebase = () => {
 };
 
 module.exports = async (req, res) => {
+  // 設定 CORS 標頭，允許跨網域呼叫
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
@@ -24,26 +25,29 @@ module.exports = async (req, res) => {
     const db = initFirebase();
     if (!db) throw new Error("Firebase 初始化失敗");
 
+    // 抓取最近 5 筆支出紀錄
     const snapshot = await db.collection('transactions').orderBy('date', 'desc').limit(5).get();
     let summary = "";
     snapshot.forEach(doc => { 
       summary += `${doc.data().note || '支出'}: ${doc.data().amount}\n`; 
     });
 
-    // --- 修正處：只定義一次 API_KEY 並使用 v1beta ---
+    // 取得環境變數中的 API KEY
     const API_KEY = (process.env.GEMINI_API_KEY || "").trim();
+    // 使用 v1beta 路由以支援最新模型
     const API_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${API_KEY}`;
 
     const response = await fetch(API_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        contents: [{ parts: [{ text: `你是一位經營專家，請給予兩條繁體中文建議：\n${summary}` }] }]
+        contents: [{ parts: [{ text: `你是一位經營專家，請針對以下五筆收支給予兩條繁體中文建議：\n${summary}` }] }]
       })
     });
 
     const result = await response.json();
 
+    // 回傳成功結果
     if (result.candidates?.[0]?.content?.parts?.[0]?.text) {
       return res.status(200).json({ advice: result.candidates[0].content.parts[0].text });
     } else {
