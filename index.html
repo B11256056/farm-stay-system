@@ -1,39 +1,77 @@
-async function getAnalysis(event) {
-    if (event) event.preventDefault(); // 阻止頁面跳轉/重整，避免通訊中斷
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <title>智慧收支系統</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-100 p-8">
+    <div class="max-w-md mx-auto bg-white p-6 rounded-lg shadow">
+        <h1 class="text-2xl font-bold mb-4">農場民宿收支登錄</h1>
+        
+        <input id="note" type="text" placeholder="摘要(如:賣蜂蜜)" class="w-full border p-2 mb-2">
+        <input id="amount" type="number" placeholder="金額" class="w-full border p-2 mb-2">
+        <select id="category" class="w-full border p-2 mb-4">
+            <option value="農產">農產部門</option>
+            <option value="民宿">民宿部門</option>
+        </select>
+        
+        <button onclick="getAnalysis(event)" id="analyzeBtn" class="w-full bg-blue-500 text-white p-2 rounded hover:bg-blue-600 disabled:bg-gray-400">
+            產生 AI 經營分析
+        </button>
 
-    const btn = document.getElementById('analyzeBtn');
-    const resultDiv = document.getElementById('result');
-    const textElement = document.getElementById('analysisText');
-    
-    btn.disabled = true;
-    btn.innerText = "分析中...";
-    resultDiv.classList.add('hidden');
+        <div id="result" class="mt-6 p-4 bg-blue-50 border-l-4 border-blue-500 hidden">
+            <h2 class="font-bold">AI 智慧建議：</h2>
+            <p id="analysisText" class="text-sm text-gray-700 mt-2 whitespace-pre-wrap"></p>
+        </div>
+    </div>
 
-    try {
-        // 重要：請將網址換成你 Vercel 實際的完整 Domain
-        const API_ENDPOINT = 'https://farm-stay-system-h9dd.vercel.app/api/analyze';
-        
-        const res = await fetch(API_ENDPOINT, { 
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' }
-        });
-        
-        const data = await res.json();
-        resultDiv.classList.remove('hidden');
-        
-        // 依照後端定義的 advice 欄位讀取
-        if (data.advice) {
-            textElement.innerText = data.advice;
-        } else {
-            textElement.innerText = "收到空回應，請檢查後端日誌。";
+    <script>
+        async function getAnalysis(e) {
+            if (e) e.preventDefault(); // 重要：防止連線被瀏覽器提早關閉
+
+            const btn = document.getElementById('analyzeBtn');
+            const resultDiv = document.getElementById('result');
+            const textElement = document.getElementById('analysisText');
+            
+            btn.disabled = true;
+            btn.innerText = "分析中...";
+            resultDiv.classList.add('hidden'); 
+
+            try {
+                // 建議：如果是本機測試 HTML，這裡換成你 Vercel 的完整 HTTPS 網址
+                // 如果是部署在 Vercel 網域內，用 '/api/analyze' 即可
+                const res = await fetch('/api/analyze', { 
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' }
+                });
+                
+                if (!res.ok) throw new Error(`HTTP 錯誤! 狀態碼: ${res.status}`);
+
+                const data = await res.json();
+                resultDiv.classList.remove('hidden');
+                
+                // 這裡的邏輯很棒，完美對齊後端的 advice 欄位
+                if (data.advice) {
+                    textElement.innerText = data.advice;
+                } else if (data.analysis) {
+                    textElement.innerText = data.analysis;
+                } else if (data.error || data.details) {
+                    textElement.innerText = "API 報錯：" + (data.error || data.details);
+                } else {
+                    textElement.innerText = "成功連線，但 Gemini 沒有給出有效文字。";
+                    console.log("Debug:", data);
+                }
+                
+            } catch (error) {
+                resultDiv.classList.remove('hidden');
+                textElement.innerText = "連線失敗：" + error.message;
+                console.error("Fetch Error:", error);
+            } finally {
+                btn.disabled = false;
+                btn.innerText = "產生 AI 經營分析";
+            }
         }
-        
-    } catch (error) {
-        resultDiv.classList.remove('hidden');
-        textElement.innerText = "連線失敗，請稍後再試。";
-        console.error("前端錯誤:", error);
-    } finally {
-        btn.disabled = false;
-        btn.innerText = "產生 AI 經營分析";
-    }
-}
+    </script>
+</body>
+</html>
